@@ -425,6 +425,7 @@ export const App = (): JSX.Element => {
         }}
         open={settingsOpen}
         rpcTestStatuses={rpcTestStatuses}
+        savedSettings={savedSettings}
         settings={draftSettings}
       />
 
