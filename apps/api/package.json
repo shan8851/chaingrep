@@ -1,0 +1,26 @@
+{
+  "name": "@chaingrep/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/server.ts --format esm --clean --dts",
+    "dev": "tsx watch src/server.ts",
+    "lint": "eslint src test --ext .ts",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@chaingrep/shared": "workspace:*",
+    "@hono/node-server": "^1.14.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.7.4",
+    "viem": "^2.37.9",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3"
+  }
+}

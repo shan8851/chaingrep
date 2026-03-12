@@ -1,0 +1,52 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: "JetBrains Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #080808;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #080808;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: "JetBrains Mono", monospace;
+}
+
+button,
+input,
+select,
+textarea {
+  appearance: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+::selection {
+  background: rgba(108, 242, 255, 0.24);
+  color: #f4f7fb;
+}
