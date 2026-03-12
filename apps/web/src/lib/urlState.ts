@@ -53,8 +53,7 @@ export const readUrlQueryDraft = (search: string = window.location.search): UrlQ
     contractAddress: searchParams.get("address") ?? defaultUrlQueryDraft.contractAddress,
     eventName: searchParams.get("event") ?? defaultUrlQueryDraft.eventName,
     fromBlock: searchParams.get("from") ?? defaultUrlQueryDraft.fromBlock,
-    mode:
-      searchParams.get("mode") === "direct" ? "direct" : defaultUrlQueryDraft.mode,
+    mode: defaultUrlQueryDraft.mode,
     toBlock: searchParams.get("to") ?? defaultUrlQueryDraft.toBlock
   };
 };
@@ -63,7 +62,6 @@ export const writeUrlQueryDraft = (queryDraft: UrlQueryDraft): void => {
   const searchParams = new URLSearchParams();
 
   searchParams.set("chain", String(queryDraft.chainId));
-  searchParams.set("mode", queryDraft.mode);
 
   if (queryDraft.contractAddress.trim()) {
     searchParams.set("address", queryDraft.contractAddress.trim());

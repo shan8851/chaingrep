@@ -9,7 +9,7 @@ If the architecture, supported chains, query limits, or secret-handling rules ch
 - Chaingrep is a browser-first EVM event search tool.
 - The product goal is "grep for contract events", not a general indexer, analytics platform, or saved-query product.
 - The hosted app should feel polished and useful for public/community usage.
-- Serious usage is expected to come from `Direct BYOK` mode or self-hosting.
+- Serious usage is expected to come from bringing your own RPC or self-hosting.
 - Simplicity and fast debugging matter more than feature breadth.
 
 ## Current Architecture
@@ -33,7 +33,9 @@ If the architecture, supported chains, query limits, or secret-handling rules ch
 
 ## Runtime Modes
 
-### `Sample` mode
+The UI auto-detects which mode to use: if you have a saved RPC for the selected chain, queries go direct; otherwise they go through the hosted API. There is no manual toggle.
+
+### Hosted mode (no RPC saved)
 
 - Request path: browser -> `apps/api` -> chain RPC
 - Endpoint: `POST /api/sample/query/stream`
@@ -51,7 +53,7 @@ If the architecture, supported chains, query limits, or secret-handling rules ch
   - Polygon: 10000 blocks
   - Base: 10000 blocks
 
-### `Direct BYOK` mode
+### Direct mode (your own RPC)
 
 - Request path: browser -> user RPC directly
 - The browser runs the same shared query engine as the API
@@ -133,14 +135,14 @@ Shared chain support currently includes:
 
 Current reality by mode:
 
-- `Direct BYOK`: all shared chains can be configured in the browser
-- `Sample`: effectively wired for Ethereum, Sepolia, Polygon, and Base
+- Direct (your own RPC): all shared chains can be configured in the browser
+- Hosted: effectively wired for Ethereum, Sepolia, Polygon, and Base
 
 ## Current UX / Product Rules
 
 - Single-page workflow: query form and results live on the same screen
 - Dark developer-tool aesthetic
-- Mode should always be explicit in the UI
+- Mode is auto-detected from saved RPC settings (no manual toggle)
 - Settings panel is the place for local-only RPC and Etherscan input
 - Results support:
   - progress display
@@ -208,7 +210,6 @@ Standard checks:
 
 Useful manual smoke test:
 
-- mode: `Sample`
 - chain: `Ethereum`
 - contract: `0x1F98431c8aD98523631AE4a59f267346ea31F984`
 - from block: `24637226`
@@ -218,7 +219,7 @@ Useful manual smoke test:
 Expected behavior:
 
 - ABI resolves in the browser
-- sample query streams progress from the API
+- query streams progress from the API (or directly if RPC is saved)
 - results decode correctly
 
 ## Known Constraints
@@ -244,8 +245,8 @@ Update all relevant places together:
 
 Check both modes separately:
 
-- can the browser query it directly with a BYOK RPC?
-- is sample mode actually wired to a server-side RPC for that chain?
+- can the browser query it directly with a user-provided RPC?
+- is hosted mode actually wired to a server-side RPC for that chain?
 
 ## Near-Term Follow-Ups
 

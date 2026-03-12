@@ -75,7 +75,7 @@ export const SettingsPanel = ({
               <div>
                 <h2 className="text-lg font-semibold text-chrome-50">Connections</h2>
                 <p className="text-sm text-chrome-200">
-                  RPC endpoints and explorer keys stay in this browser via localStorage for convenience.
+                  Your RPC URLs and API keys are stored in this browser only.
                 </p>
               </div>
             </div>
@@ -96,7 +96,7 @@ export const SettingsPanel = ({
                     <Badge tone={etherscanStorageStatus.tone}>{etherscanStorageStatus.label}</Badge>
                   </div>
                   <p className="text-sm text-chrome-200">
-                    Optional. Used only in the browser for ABI lookup when Sourcify misses.
+                    Optional. Only used client-side for ABI lookups when Sourcify doesn't have the contract.
                   </p>
                 </div>
               </div>
@@ -110,7 +110,7 @@ export const SettingsPanel = ({
                 value={settings.etherscanApiKey ?? ""}
               />
               <p className="text-xs text-chrome-300">
-                Local-only convenience storage, not hardened secret storage.
+                Stored in localStorage — convenient, not a vault.
               </p>
             </section>
 
@@ -122,7 +122,7 @@ export const SettingsPanel = ({
                 <div>
                   <Label>Per-chain RPC</Label>
                   <p className="text-sm text-chrome-200">
-                    Direct mode sends queries straight from the browser to the RPC URL for that chain.
+                    When you add an RPC, queries for that chain go straight from your browser to the endpoint. Nothing touches our server.
                   </p>
                 </div>
               </div>

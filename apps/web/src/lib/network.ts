@@ -54,7 +54,7 @@ export const readSampleStream = async (
   }
 
   if (!response.body) {
-    throw new Error("The sample query stream did not return a readable response body.");
+    throw new Error("The query stream returned an empty response.");
   }
 
   const reader = response.body.getReader();

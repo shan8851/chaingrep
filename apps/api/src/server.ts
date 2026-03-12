@@ -36,6 +36,6 @@ serve(
     port: apiEnv.PORT
   },
   (serverInfo) => {
-    console.log(`Chaingrep sample API listening on http://localhost:${serverInfo.port}`);
+    console.log(`chaingrep API listening on http://localhost:${serverInfo.port}`);
   }
 );

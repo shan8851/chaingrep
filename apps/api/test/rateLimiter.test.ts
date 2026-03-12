@@ -23,6 +23,6 @@ describe("createRateLimiter", () => {
     rateLimiter.begin("client-1");
     rateLimiter.finish("client-1");
 
-    expect(() => rateLimiter.begin("client-1")).toThrow("limit reached");
+    expect(() => rateLimiter.begin("client-1")).toThrow("Rate limit hit");
   });
 });

@@ -1,5 +1,7 @@
 import {
   FileCode2,
+  Github,
+  Globe,
   Orbit,
   Play,
   Save,
@@ -89,6 +91,15 @@ const createAbiCacheKey = (
   manualAbiText: string
 ): string => [chainId, contractAddress.trim().toLowerCase(), manualAbiText.trim()].join(":");
 
+const EXAMPLE_QUERY = {
+  chainId: 1 as ChainId,
+  contractAddress: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+  eventName: "PoolCreated",
+  fromBlock: "24637226",
+  mode: "sample" as const,
+  toBlock: "24637326"
+};
+
 const createExportFileStem = (contractAddress: string, chainId: ChainId): string =>
   `${contractAddress.slice(0, 10).toLowerCase()}-${chainId}`;
 
@@ -174,6 +185,15 @@ export const App = (): JSX.Element => {
     };
   }, []);
 
+  useEffect(() => {
+    const hasRpcForChain = Boolean(getChainRpcUrl(savedSettings, queryDraft.chainId));
+
+    setQueryDraft((currentDraft) => ({
+      ...currentDraft,
+      mode: hasRpcForChain ? "direct" : "sample"
+    }));
+  }, [savedSettings, queryDraft.chainId]);
+
   const resolveAbiForCurrentDraft = async (forceRefresh = false): Promise<ResolvedAbi> => {
     const abiCacheKey = createAbiCacheKey(
       queryDraft.chainId,
@@ -248,7 +268,7 @@ export const App = (): JSX.Element => {
         const rpcUrl = getChainRpcUrl(savedSettings, parsedQueryInput.chainId);
 
         if (!rpcUrl) {
-          throw new Error("Save an RPC URL for the selected chain before using direct mode.");
+          throw new Error("No RPC URL saved for this chain — add one in settings.");
         }
 
         const directQueryResult = await runLogQueryRuntime({
@@ -307,7 +327,7 @@ export const App = (): JSX.Element => {
       }
 
       if (!streamedQueryResult) {
-        throw new Error("The sample query finished without a result payload.");
+        throw new Error("Query finished but returned no result. Try again or check the block range.");
       }
 
       startTransition(() => {
@@ -337,12 +357,133 @@ export const App = (): JSX.Element => {
     }
   };
 
-  const activeChainRpcUrl = draftSettings.rpcUrlsByChainId[String(queryDraft.chainId)] ?? "";
-  const canRunDirectMode =
-    queryDraft.mode === "sample" || Boolean(getChainRpcUrl(savedSettings, queryDraft.chainId));
   const chainConfig = supportedChains.find(
     (supportedChain) => supportedChain.id === queryDraft.chainId
   );
+
+  const handleLoadExample = async (): Promise<void> => {
+    setQueryDraft(EXAMPLE_QUERY);
+    setManualAbiText("");
+
+    try {
+      const resolvedAbi = await abiResolutionMutation.mutateAsync({
+        chainId: EXAMPLE_QUERY.chainId,
+        contractAddress: EXAMPLE_QUERY.contractAddress,
+        ...(savedSettings.etherscanApiKey
+          ? { etherscanApiKey: savedSettings.etherscanApiKey }
+          : {}),
+        manualAbiText: ""
+      });
+
+      setAbiRuntimeState({
+        cacheKey: createAbiCacheKey(EXAMPLE_QUERY.chainId, EXAMPLE_QUERY.contractAddress, ""),
+        errorMessage: null,
+        resolvedAbi
+      });
+
+      const parsedQueryInput = parseQueryDraft(EXAMPLE_QUERY);
+      const activeAbortController = new AbortController();
+
+      setQueryRuntimeState({
+        activeAbortController,
+        errorMessage: null,
+        progressEvents: [],
+        queryResult: null,
+        running: true
+      });
+
+      if (parsedQueryInput.mode === "direct") {
+        const rpcUrl = getChainRpcUrl(savedSettings, parsedQueryInput.chainId);
+
+        if (!rpcUrl) {
+          throw new Error("No RPC URL saved for this chain — add one in settings.");
+        }
+
+        const directQueryResult = await runLogQueryRuntime({
+          ...(resolvedAbi.abi.length > 0 ? { abi: resolvedAbi.abi } : {}),
+          onProgress: async (progressEvent) => {
+            applyProgressEvent(progressEvent);
+          },
+          queryInput: parsedQueryInput,
+          rpcUrl,
+          signal: activeAbortController.signal
+        });
+
+        startTransition(() => {
+          setQueryRuntimeState((currentState) => ({
+            ...currentState,
+            activeAbortController: null,
+            errorMessage: null,
+            queryResult: directQueryResult,
+            running: false
+          }));
+        });
+
+        return;
+      }
+
+      const sampleResponse = await fetch(`${getApiBaseUrl()}/api/sample/query/stream`, {
+        body: JSON.stringify({
+          ...(resolvedAbi.abi.length > 0 ? { abi: resolvedAbi.abi } : {}),
+          queryInput: serializeQueryInputForTransport(parsedQueryInput)
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST",
+        signal: activeAbortController.signal
+      });
+      let streamedQueryResult: QueryResult | null = null;
+      let streamedErrorMessage: string | null = null;
+
+      await readSampleStream(sampleResponse, (message) => {
+        if (message.kind === "progress") {
+          applyProgressEvent(message.progress);
+        }
+
+        if (message.kind === "result") {
+          streamedQueryResult = message.result;
+        }
+
+        if (message.kind === "error") {
+          streamedErrorMessage = message.error;
+        }
+      });
+
+      if (streamedErrorMessage) {
+        throw new Error(streamedErrorMessage);
+      }
+
+      if (!streamedQueryResult) {
+        throw new Error("Query finished but returned no result. Try again or check the block range.");
+      }
+
+      startTransition(() => {
+        setQueryRuntimeState((currentState) => ({
+          ...currentState,
+          activeAbortController: null,
+          queryResult: streamedQueryResult,
+          running: false
+        }));
+      });
+    } catch (error) {
+      const wasCancelled =
+        error instanceof DOMException && error.name === "AbortError";
+
+      startTransition(() => {
+        setQueryRuntimeState((currentState) => ({
+          ...currentState,
+          activeAbortController: null,
+          errorMessage: wasCancelled
+            ? "Query cancelled."
+            : error instanceof Error
+              ? error.message
+              : "Query failed.",
+          running: false
+        }));
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-chrome-900 text-chrome-50">
@@ -437,10 +578,11 @@ export const App = (): JSX.Element => {
               <p className="text-sm text-chrome-300">🔍 browser-first EVM event grep</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Badge tone={queryDraft.mode === "direct" ? "success" : "warning"}>
-                {queryDraft.mode === "direct" ? "Direct BYOK" : "Anonymous sample"}
-              </Badge>
+              {queryDraft.mode === "direct" ? (
+                <Badge tone="success">Your RPC</Badge>
+              ) : null}
               <Button
+                aria-label="Settings"
                 intent="secondary"
                 onClick={() => {
                   setSettingsOpen(true);
@@ -448,52 +590,16 @@ export const App = (): JSX.Element => {
                 type="button"
               >
                 <Settings2 className="size-4" />
-                Connections
               </Button>
             </div>
           </header>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
             <Panel className="p-6 sm:p-8">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="mb-4">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-chrome-200">
                   Query builder
                 </p>
-                <div className="flex rounded-sm border border-chrome-500/80 bg-chrome-800/90 p-1">
-                  <button
-                    className={`rounded-sm px-4 py-2 text-sm font-semibold transition ${
-                      queryDraft.mode === "sample"
-                        ? "bg-signal-orange/18 text-signal-orange"
-                        : "text-chrome-200"
-                    }`}
-                    onClick={() => {
-                      setQueryDraft((currentDraft) => ({
-                        ...currentDraft,
-                        mode: "sample"
-                      }));
-                    }}
-                    type="button"
-                  >
-                    Sample
-                  </button>
-                  <div className="mx-0.5 w-px self-stretch bg-chrome-500/80" />
-                  <button
-                    className={`rounded-sm px-4 py-2 text-sm font-semibold transition ${
-                      queryDraft.mode === "direct"
-                        ? "bg-signal-green/18 text-signal-green"
-                        : "text-chrome-200"
-                    }`}
-                    onClick={() => {
-                      setQueryDraft((currentDraft) => ({
-                        ...currentDraft,
-                        mode: "direct"
-                      }));
-                    }}
-                    type="button"
-                  >
-                    Direct BYOK
-                  </button>
-                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -625,10 +731,10 @@ export const App = (): JSX.Element => {
                       <span className="text-sm text-chrome-200">
                         {abiRuntimeState.errorMessage ??
                           (abiRuntimeState.resolvedAbi?.source === "none"
-                            ? "No explorer ABI found. Manual ABI still works."
+                            ? "No explorer ABI found. You can still paste one manually."
                             : abiRuntimeState.resolvedAbi
                               ? `${abiRuntimeState.resolvedAbi.eventOptions.length} event(s) ready.`
-                              : "Resolve an ABI before running a filtered query.")}
+                              : "Hit Resolve to load the ABI, or paste one manually.")}
                       </span>
                     </div>
                   </div>
@@ -683,8 +789,7 @@ export const App = (): JSX.Element => {
                       value={manualAbiText}
                     />
                     <p className="mt-2 text-xs text-chrome-300">
-                      Pasted ABI overrides explorer lookup. Raw ABI arrays and explorer response
-                      payloads both work.
+                      Overrides the automatic lookup. Raw ABI arrays and etherscan-style response objects both work.
                     </p>
                     <div className="mt-4 flex justify-end">
                       <Button
@@ -703,22 +808,30 @@ export const App = (): JSX.Element => {
 
               <div className="mt-4 flex flex-col gap-4 border-t border-chrome-500/80 pt-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge tone={queryDraft.mode === "sample" ? "warning" : "success"}>
-                      {queryDraft.mode === "sample"
-                        ? `${chainConfig?.sampleBlockSpan ?? 0} block sample cap`
-                        : "Direct mode from this browser"}
-                    </Badge>
-                    {!canRunDirectMode ? (
-                      <Badge tone="danger">Missing saved RPC for this chain</Badge>
-                    ) : null}
-                  </div>
+                  {queryDraft.mode === "sample" ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="warning">
+                        {chainConfig?.sampleBlockSpan ?? 0} block range limit
+                      </Badge>
+                    </div>
+                  ) : null}
                   <p className="text-sm text-chrome-200">
-                    {queryDraft.mode === "sample"
-                      ? "Hosted sample mode is meant to be useful for quick testing and many lightweight searches, but it still has rate limits and caps."
-                      : activeChainRpcUrl
-                        ? `Direct mode uses ${activeChainRpcUrl} from localStorage and does not send that RPC URL to our server.`
-                        : "Save a chain-specific RPC URL in Connections to use direct mode."}
+                    {queryDraft.mode === "sample" ? (
+                      <>
+                        Want unlimited queries?{" "}
+                        <button
+                          className="text-signal-cyan underline underline-offset-4 transition hover:text-chrome-50"
+                          onClick={() => {
+                            setSettingsOpen(true);
+                          }}
+                          type="button"
+                        >
+                          Add your own RPC →
+                        </button>
+                      </>
+                    ) : (
+                      "Queries go straight to the chain from your browser."
+                    )}
                   </p>
                 </div>
 
@@ -738,7 +851,6 @@ export const App = (): JSX.Element => {
                   ) : (
                     <Button
                       className="whitespace-nowrap"
-                      disabled={!canRunDirectMode}
                       intent="primary"
                       onClick={handleRunQuery}
                       type="button"
@@ -785,8 +897,42 @@ export const App = (): JSX.Element => {
                 );
               });
             }}
+            onLoadExample={() => {
+              void handleLoadExample();
+            }}
             queryResult={queryRuntimeState.queryResult}
           />
+
+          <footer className="mt-8 border-t border-chrome-500/80 py-6 text-center">
+            <div className="flex items-center justify-center gap-5">
+              <a
+                className="text-chrome-300 transition hover:text-chrome-50"
+                href="https://github.com/shan8851"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Github className="size-4" />
+              </a>
+              <a
+                className="text-chrome-300 transition hover:text-chrome-50"
+                href="https://x.com/shan8851"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <svg className="size-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+              <a
+                className="text-chrome-300 transition hover:text-chrome-50"
+                href="https://shan8851.com"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Globe className="size-4" />
+              </a>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

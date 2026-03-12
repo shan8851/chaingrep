@@ -14,6 +14,7 @@ import { Badge, Button, Panel } from "./ui";
 type ResultsTableProps = {
   onExportCsv: () => void;
   onExportJson: () => void;
+  onLoadExample?: () => void;
   queryResult: QueryResult | null;
 };
 
@@ -33,6 +34,7 @@ const handleRowKeyDown = (
 export const ResultsTable = ({
   onExportCsv,
   onExportJson,
+  onLoadExample,
   queryResult
 }: ResultsTableProps): JSX.Element => {
   const [sortKey, setSortKey] = useState<"blockNumber" | "eventName" | "transactionHash">(
@@ -67,7 +69,7 @@ export const ResultsTable = ({
         <div className="flex flex-col gap-4 border-b border-chrome-500/80 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-chrome-200">
-              📋 Results
+              Results
             </p>
             <h2 className="mt-2 text-xl font-semibold text-chrome-50">
               {queryResult
@@ -97,10 +99,19 @@ export const ResultsTable = ({
               <SearchCode className="size-8" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-chrome-50">🫥 No logs yet</h3>
+              <h3 className="text-lg font-semibold text-chrome-50">No results yet</h3>
               <p className="max-w-lg text-sm text-chrome-200">
-                Resolve an ABI, set a block window, and run a query to inspect decoded events here.
+                Pick a contract and block range, then run a query to see decoded events.
               </p>
+              {onLoadExample ? (
+                <button
+                  className="mt-3 text-sm text-signal-cyan underline underline-offset-4 transition hover:text-chrome-50"
+                  onClick={onLoadExample}
+                  type="button"
+                >
+                  Try an example — Uniswap V3 PoolCreated on Ethereum
+                </button>
+              ) : null}
             </div>
           </div>
         ) : (

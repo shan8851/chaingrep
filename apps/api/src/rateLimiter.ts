@@ -54,11 +54,11 @@ export const createRateLimiter = ({
       const entry = getEntry(identifier);
 
       if (entry.activeQueries > 0) {
-        throw new Error("A sample query is already running for this client.");
+        throw new Error("A query is already running. Wait for it to finish or cancel it.");
       }
 
       if (entry.queryCount >= maxQueriesPerWindow) {
-        throw new Error("Sample query limit reached. Switch to BYOK direct mode.");
+        throw new Error("Rate limit hit. Add your own RPC for unlimited queries.");
       }
 
       entry.queryCount += 1;

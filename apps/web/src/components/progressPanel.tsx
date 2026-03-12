@@ -55,9 +55,9 @@ export const ProgressPanel = ({
     <div className="mb-4 flex items-center justify-between">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-chrome-200">
-          📡 Query telemetry
+          Query telemetry
         </p>
-        <h2 className="mt-2 text-xl font-semibold text-chrome-50">Live status</h2>
+        <h2 className="mt-2 text-xl font-semibold text-chrome-50">Live progress</h2>
       </div>
       {running ? (
         <Badge tone="warning">
@@ -79,7 +79,7 @@ export const ProgressPanel = ({
     <div className="space-y-2">
       {progressEvents.length === 0 ? (
         <div className="rounded-sm border border-dashed border-chrome-500/90 bg-chrome-800/70 p-3 text-sm text-chrome-200">
-          Query progress streams here once you start a sample or direct search.
+          Progress events show up here when a query is running.
         </div>
       ) : (
         progressEvents

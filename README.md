@@ -16,11 +16,11 @@ Point it at a contract, pick a block range, and search through decoded events. N
 
 That's it. No accounts, no API keys required for basic use.
 
-## Two modes
+## Works out of the box
 
-**Sample mode:** just works, no setup needed. Queries go through a small hosted API with sensible rate limits (10K blocks per query, 10 queries per 15 min). Good enough for most quick lookups.
+No setup needed. Queries go through a small hosted API with sensible rate limits (10K blocks per query, 10 queries per 15 min). Good enough for most quick lookups.
 
-**Direct BYOK:** plug in your own RPC URL and queries go straight from your browser to the chain. Nothing touches our server. Best for heavier usage or private contracts. Your keys live in localStorage (convenient, not Fort Knox, treat accordingly).
+**Bring your own RPC:** plug in your own RPC URL in settings and queries go straight from your browser to the chain. Nothing touches our server. No rate limits, no block range caps. Your keys live in localStorage (convenient, not Fort Knox, treat accordingly). The app auto-detects which mode to use based on whether you have an RPC saved for the selected chain.
 
 ## Supported chains
 

@@ -9,7 +9,7 @@ describe("url state", () => {
     );
 
     expect(queryDraft.chainId).toBe(8453);
-    expect(queryDraft.mode).toBe("direct");
+    expect(queryDraft.mode).toBe("sample");
     expect(queryDraft.eventName).toBe("Transfer");
   });
 

@@ -71,7 +71,7 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
     if (!sampleRpcUrl) {
       return context.json(
         {
-          error: `Sample mode is not configured for ${getChainConfig(requestBody.queryInput.chainId).name}. Add a chain-specific sample RPC URL in apps/api/.env.`
+          error: `Not configured for ${getChainConfig(requestBody.queryInput.chainId).name}. The operator needs to add an RPC URL in the API env.`
         },
         503
       );
