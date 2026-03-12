@@ -1,0 +1,36 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/shared/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @chaingrep/shared build
+
+      - name: Build web
+        run: pnpm --filter @chaingrep/web build
+        env:
+          VITE_API_BASE_URL: https://api.chaingrep.xyz
+
+      - name: Deploy to Cloudflare Pages
+        run: pnpm exec wrangler pages deploy apps/web/dist --project-name=chaingrep-web --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -22,8 +22,8 @@ type AppBindings = {
 };
 
 const getClientIdentifier = (requestHeaders: Headers): string =>
-  requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
   requestHeaders.get("cf-connecting-ip") ??
+  requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
   "unknown";
 
 const encodeStreamMessage = (message: QueryStreamMessage): Uint8Array =>
@@ -40,7 +40,7 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
     cors({
       allowHeaders: ["content-type"],
       allowMethods: ["GET", "POST", "OPTIONS"],
-      origin: "*"
+      origin: environment.CORS_ORIGIN ?? "*"
     })
   );
 

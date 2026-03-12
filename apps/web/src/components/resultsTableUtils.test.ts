@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sortLogRows, updateExpandedLogIds } from "./resultsTableUtils";
+import { isCopyableAddressValue, sortLogRows } from "./resultsTableUtils";
 
 import type { DecodedLog } from "@chaingrep/shared";
 
@@ -35,13 +35,11 @@ describe("resultsTableUtils", () => {
     expect(sortedLogs.map(({ blockNumber }) => blockNumber)).toEqual(["20", "3"]);
   });
 
-  it("adds and removes expanded row ids immutably", () => {
-    const expandedLogIds = new Set(["alpha"]);
-    const nextExpandedLogIds = updateExpandedLogIds(expandedLogIds, "beta", true);
-    const collapsedLogIds = updateExpandedLogIds(nextExpandedLogIds, "alpha", false);
-
-    expect([...expandedLogIds]).toEqual(["alpha"]);
-    expect([...nextExpandedLogIds].sort()).toEqual(["alpha", "beta"]);
-    expect([...collapsedLogIds]).toEqual(["beta"]);
+  it("detects copyable address values", () => {
+    expect(isCopyableAddressValue("address", "not-an-address")).toBe(true);
+    expect(
+      isCopyableAddressValue("uint256", "0x00000000000000000000000000000000000000aa")
+    ).toBe(true);
+    expect(isCopyableAddressValue("uint256", "42")).toBe(false);
   });
 });

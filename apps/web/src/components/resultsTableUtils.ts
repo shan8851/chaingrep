@@ -20,19 +20,3 @@ export const sortLogRows = (
 
 export const isCopyableAddressValue = (type: string, value: string): boolean =>
   type.startsWith("address") || addressPattern.test(value);
-
-export const updateExpandedLogIds = (
-  currentExpandedLogIds: Set<string>,
-  logId: string,
-  expanded: boolean
-): Set<string> => {
-  const nextExpandedLogIds = new Set(currentExpandedLogIds);
-
-  if (expanded) {
-    nextExpandedLogIds.add(logId);
-  } else {
-    nextExpandedLogIds.delete(logId);
-  }
-
-  return nextExpandedLogIds;
-};

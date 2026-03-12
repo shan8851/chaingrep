@@ -31,7 +31,7 @@ import { ProgressPanel } from "./components/progressPanel";
 import { ResultsTable } from "./components/resultsTable";
 import { SettingsPanel } from "./components/settingsPanel";
 import { CopyIconButton } from "./components/copyIconButton";
-import { Badge, Button, Input, Label, Panel, Textarea } from "./components/ui";
+import { Badge, Button, Input, Label, Panel, Select, Textarea } from "./components/ui";
 import { useCopyToClipboard } from "./hooks/useCopyToClipboard";
 import { downloadTextFile, getApiBaseUrl, readSampleStream, testRpcEndpoint } from "./lib/network";
 import { queryKeys } from "./lib/queryKeys";
@@ -498,28 +498,25 @@ export const App = (): JSX.Element => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Chain</Label>
-                  <div className="rounded-panel border border-chrome-400/70 bg-chrome-700/80">
-                    <select
-                      className="h-10 w-full bg-transparent px-4 text-sm text-chrome-50 outline-none [color-scheme:dark]"
-                      onChange={(event) => {
-                        setQueryDraft((currentDraft) => ({
-                          ...currentDraft,
-                          chainId: Number(event.target.value) as ChainId
-                        }));
-                      }}
-                      value={queryDraft.chainId}
-                    >
-                      {supportedChains.map((supportedChain) => (
-                        <option
-                          className="bg-chrome-800 text-chrome-50"
-                          key={supportedChain.id}
-                          value={supportedChain.id}
-                        >
-                          {supportedChain.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <Select
+                    onChange={(event) => {
+                      setQueryDraft((currentDraft) => ({
+                        ...currentDraft,
+                        chainId: Number(event.target.value) as ChainId
+                      }));
+                    }}
+                    value={queryDraft.chainId}
+                  >
+                    {supportedChains.map((supportedChain) => (
+                      <option
+                        className="bg-chrome-800 text-chrome-50"
+                        key={supportedChain.id}
+                        value={supportedChain.id}
+                      >
+                        {supportedChain.name}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -558,6 +555,7 @@ export const App = (): JSX.Element => {
                         fromBlock: event.target.value
                       }));
                     }}
+                    placeholder="Start block"
                     value={queryDraft.fromBlock}
                   />
                 </div>
@@ -572,6 +570,7 @@ export const App = (): JSX.Element => {
                         toBlock: event.target.value
                       }));
                     }}
+                    placeholder="End block"
                     value={queryDraft.toBlock}
                   />
                 </div>
@@ -579,32 +578,29 @@ export const App = (): JSX.Element => {
 
               <div className="mt-4 space-y-2">
                 <Label>Event filter</Label>
-                <div className="rounded-panel border border-chrome-400/70 bg-chrome-700/80">
-                  <select
-                    className="h-10 w-full bg-transparent px-4 text-sm text-chrome-50 outline-none [color-scheme:dark] disabled:cursor-not-allowed disabled:text-chrome-300"
-                    disabled={abiRuntimeState.resolvedAbi?.eventOptions.length === 0}
-                    onChange={(event) => {
-                      setQueryDraft((currentDraft) => ({
-                        ...currentDraft,
-                        eventName: event.target.value
-                      }));
-                    }}
-                    value={queryDraft.eventName}
-                  >
-                    <option className="bg-chrome-800 text-chrome-50" value="">
-                      All decoded events
+                <Select
+                  disabled={abiRuntimeState.resolvedAbi?.eventOptions.length === 0}
+                  onChange={(event) => {
+                    setQueryDraft((currentDraft) => ({
+                      ...currentDraft,
+                      eventName: event.target.value
+                    }));
+                  }}
+                  value={queryDraft.eventName}
+                >
+                  <option className="bg-chrome-800 text-chrome-50" value="">
+                    All decoded events
+                  </option>
+                  {(abiRuntimeState.resolvedAbi?.eventOptions ?? []).map((eventName) => (
+                    <option
+                      className="bg-chrome-800 text-chrome-50"
+                      key={eventName}
+                      value={eventName}
+                    >
+                      {eventName}
                     </option>
-                    {(abiRuntimeState.resolvedAbi?.eventOptions ?? []).map((eventName) => (
-                      <option
-                        className="bg-chrome-800 text-chrome-50"
-                        key={eventName}
-                        value={eventName}
-                      >
-                        {eventName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  ))}
+                </Select>
                 <p className="text-xs text-chrome-300">
                   {abiRuntimeState.resolvedAbi?.eventOptions.length
                     ? `${abiRuntimeState.resolvedAbi.eventOptions.length} event(s) available from the active ABI.`
@@ -665,7 +661,7 @@ export const App = (): JSX.Element => {
                   />
                   <div className="relative w-full max-w-2xl rounded-sm border border-chrome-500/80 bg-chrome-700 p-6">
                     <div className="mb-4 flex items-center justify-between">
-                      <Label>Manual ABI fallback</Label>
+                      <Label>Manual ABI override</Label>
                       <button
                         className="text-chrome-300 transition hover:text-chrome-50"
                         onClick={() => {
@@ -686,7 +682,8 @@ export const App = (): JSX.Element => {
                       value={manualAbiText}
                     />
                     <p className="mt-2 text-xs text-chrome-300">
-                      Sourcify first, then your Etherscan key, then this manual ABI.
+                      Pasted ABI overrides explorer lookup. Raw ABI arrays and explorer response
+                      payloads both work.
                     </p>
                     <div className="mt-4 flex justify-end">
                       <Button

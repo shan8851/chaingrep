@@ -20,9 +20,22 @@ const defaultUrlQueryDraft: UrlQueryDraft = {
   chainId: 1,
   contractAddress: "",
   eventName: "",
-  fromBlock: "0",
+  fromBlock: "",
   mode: "sample",
-  toBlock: "0"
+  toBlock: ""
+};
+
+const parseRequiredBlockBoundary = (
+  blockBoundary: string,
+  label: "From" | "To"
+): string => {
+  const trimmedBlockBoundary = blockBoundary.trim();
+
+  if (!trimmedBlockBoundary) {
+    throw new Error(`${label} block is required.`);
+  }
+
+  return trimmedBlockBoundary;
 };
 
 export const readUrlQueryDraft = (search: string = window.location.search): UrlQueryDraft => {
@@ -76,9 +89,9 @@ export const parseQueryDraft = (queryDraft: UrlQueryDraft): LogQueryInput =>
     chainId: queryDraft.chainId,
     contractAddress: queryDraft.contractAddress.trim(),
     eventName: queryDraft.eventName.trim() || undefined,
-    fromBlock: queryDraft.fromBlock.trim(),
+    fromBlock: parseRequiredBlockBoundary(queryDraft.fromBlock, "From"),
     mode: queryDraft.mode,
-    toBlock: queryDraft.toBlock.trim()
+    toBlock: parseRequiredBlockBoundary(queryDraft.toBlock, "To")
   });
 
 export const serializeQueryInputForTransport = (

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ChainId } from "@chaingrep/shared";
 
 const envSchema = z.object({
+  CORS_ORIGIN: z.string().optional(),
   PORT: z.coerce.number().int().positive().default(8787),
   SAMPLE_BASE_RPC_URL: z.string().url().optional(),
   SAMPLE_ETHEREUM_RPC_URL: z.string().url().optional(),
@@ -16,7 +17,7 @@ const envSchema = z.object({
 
 export type ApiEnv = z.infer<typeof envSchema>;
 
-export const readApiEnv = (environment: NodeJS.ProcessEnv = process.env): ApiEnv =>
+export const readApiEnv = (environment: Record<string, unknown> = process.env): ApiEnv =>
   envSchema.parse(environment);
 
 export const getSampleRpcUrlForChain = (

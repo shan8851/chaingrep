@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { extractEventOptions, parseManualAbi, resolveContractAbi } from "../src/lib/abi";
+import {
+  extractEventOptions,
+  fetchEtherscanAbi,
+  parseManualAbi,
+  resolveContractAbi
+} from "../src/lib/abi";
 
 const transferAbiJson = JSON.stringify([
   {
@@ -33,6 +38,18 @@ const transferAbiJson = JSON.stringify([
 describe("abi helpers", () => {
   it("parses a manual ABI and extracts event names", () => {
     const parsedAbi = parseManualAbi(transferAbiJson);
+
+    expect(extractEventOptions(parsedAbi)).toEqual(["Transfer"]);
+  });
+
+  it("parses an etherscan-style manual ABI payload", () => {
+    const parsedAbi = parseManualAbi(
+      JSON.stringify({
+        message: "OK",
+        result: transferAbiJson,
+        status: "1"
+      })
+    );
 
     expect(extractEventOptions(parsedAbi)).toEqual(["Transfer"]);
   });
@@ -73,5 +90,49 @@ describe("abi helpers", () => {
 
     expect(resolvedAbi.source).toBe("etherscan");
     expect(fetchImplementation).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns null when etherscan reports an unverified contract", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: "NOTOK",
+          result: "Contract source code not verified",
+          status: "0"
+        })
+      )
+    );
+
+    await expect(
+      fetchEtherscanAbi(
+        1,
+        "0x0000000000000000000000000000000000000001",
+        "etherscan-key",
+        undefined,
+        fetchImplementation
+      )
+    ).resolves.toBeNull();
+  });
+
+  it("throws a helpful error when etherscan returns a non-ABI error", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: "NOTOK",
+          result: "Invalid API Key",
+          status: "0"
+        })
+      )
+    );
+
+    await expect(
+      fetchEtherscanAbi(
+        1,
+        "0x0000000000000000000000000000000000000001",
+        "etherscan-key",
+        undefined,
+        fetchImplementation
+      )
+    ).rejects.toThrow("Etherscan ABI lookup failed: Invalid API Key");
   });
 });

@@ -24,6 +24,9 @@ type ResolveContractAbiOptions = {
 
 type FetchImplementation = typeof fetch;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 const isAbiArray = (value: unknown): value is Abi =>
   Array.isArray(value) &&
   value.every(
@@ -35,14 +38,58 @@ const isAbiEventItem = (abiItem: Abi[number]): abiItem is AbiEvent => abiItem.ty
 export const extractEventOptions = (abi: Abi): string[] =>
   abi.filter(isAbiEventItem).map(({ name }) => name);
 
-export const parseManualAbi = (manualAbiText: string): Abi => {
-  const parsedValue = JSON.parse(manualAbiText) as unknown;
-
-  if (!isAbiArray(parsedValue)) {
-    throw new Error("Manual ABI must be a JSON array of ABI items.");
+const extractAbi = (value: unknown): Abi | null => {
+  if (isAbiArray(value)) {
+    return value;
   }
 
-  return parsedValue;
+  if (typeof value === "string") {
+    try {
+      return extractAbi(JSON.parse(value) as unknown);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if ("result" in value) {
+    return extractAbi(value.result);
+  }
+
+  if ("abi" in value) {
+    return extractAbi(value.abi);
+  }
+
+  if ("output" in value && isRecord(value.output) && "abi" in value.output) {
+    return extractAbi(value.output.abi);
+  }
+
+  return null;
+};
+
+export const parseManualAbi = (manualAbiText: string): Abi => {
+  let parsedValue: unknown;
+
+  try {
+    parsedValue = JSON.parse(manualAbiText) as unknown;
+  } catch {
+    throw new Error(
+      "Manual ABI must be a JSON ABI array or a JSON object containing a usable ABI."
+    );
+  }
+
+  const extractedAbi = extractAbi(parsedValue);
+
+  if (!extractedAbi) {
+    throw new Error(
+      "Manual ABI must be a JSON ABI array or a JSON object containing a usable ABI."
+    );
+  }
+
+  return extractedAbi;
 };
 
 const fetchSourcifyMetadata = async (
@@ -128,16 +175,19 @@ export const fetchEtherscanAbi = async (
 
   const payload = (await response.json()) as unknown;
 
-  if (
-    typeof payload === "object" &&
-    payload !== null &&
-    "result" in payload &&
-    typeof payload.result === "string"
-  ) {
-    const parsedAbi = JSON.parse(payload.result) as unknown;
+  if (isRecord(payload) && "result" in payload) {
+    const parsedAbi = extractAbi(payload.result);
 
-    if (isAbiArray(parsedAbi)) {
+    if (parsedAbi) {
       return parsedAbi;
+    }
+
+    if (payload.status === "0" && typeof payload.result === "string") {
+      if (/source code not verified/i.test(payload.result)) {
+        return null;
+      }
+
+      throw new Error(`Etherscan ABI lookup failed: ${payload.result}`);
     }
 
     return null;

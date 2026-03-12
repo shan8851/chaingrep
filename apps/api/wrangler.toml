@@ -1,0 +1,10 @@
+name = "chaingrep-api"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+SAMPLE_MAX_BLOCK_SPAN = "10000"
+SAMPLE_MAX_LOGS = "2000"
+SAMPLE_QUERY_LIMIT = "10"
+SAMPLE_RATE_WINDOW_MS = "900000"
+CORS_ORIGIN = "https://chaingrep.xyz"

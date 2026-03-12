@@ -1,14 +1,16 @@
+import { ChevronDown } from "lucide-react";
 import { cva } from "class-variance-authority";
+
+import { cn } from "../lib/utils";
 
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   JSX,
   PropsWithChildren,
+  SelectHTMLAttributes,
   TextareaHTMLAttributes
 } from "react";
-
-import { cn } from "../lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-panel border px-4 py-2 text-sm font-semibold transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-cyan/60 disabled:cursor-not-allowed disabled:opacity-40",
@@ -65,6 +67,28 @@ export const Textarea = ({
     )}
     {...textareaProps}
   />
+);
+
+export const Select = ({
+  children,
+  className,
+  ...selectProps
+}: PropsWithChildren<SelectHTMLAttributes<HTMLSelectElement>>): JSX.Element => (
+  <div className="relative rounded-panel border border-chrome-400/70 bg-chrome-700/80">
+    <select
+      className={cn(
+        "h-10 w-full appearance-none bg-transparent px-4 pr-10 text-sm text-chrome-50 outline-none [color-scheme:dark] disabled:cursor-not-allowed disabled:text-chrome-300",
+        className
+      )}
+      {...selectProps}
+    >
+      {children}
+    </select>
+    <ChevronDown
+      aria-hidden="true"
+      className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-chrome-300"
+    />
+  </div>
 );
 
 export const Panel = ({
