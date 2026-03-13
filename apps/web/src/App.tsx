@@ -2,19 +2,23 @@ import {
   FileCode2,
   Github,
   Globe,
+  LoaderCircle,
   Orbit,
   Play,
   Save,
   Settings2,
   Square,
+  Timer,
   X
 } from "lucide-react";
 import {
   startTransition,
+  useCallback,
   useEffect,
   useState
 } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { createPublicClient, http } from "viem";
 
 import type { JSX } from "react";
 import {
@@ -121,6 +125,7 @@ export const App = (): JSX.Element => {
   const [queryRuntimeState, setQueryRuntimeState] =
     useState<QueryRuntimeState>(initialQueryRuntimeState);
   const { copyToClipboard, hasCopiedValue } = useCopyToClipboard();
+  const [fetchingLatestBlock, setFetchingLatestBlock] = useState(false);
 
   const abiResolutionMutation = useMutation({
     mutationFn: async ({
@@ -360,6 +365,34 @@ export const App = (): JSX.Element => {
   const chainConfig = supportedChains.find(
     (supportedChain) => supportedChain.id === queryDraft.chainId
   );
+
+  const handleFetchRecentBlocks = useCallback(async (): Promise<void> => {
+    if (!chainConfig) {
+      return;
+    }
+
+    setFetchingLatestBlock(true);
+
+    try {
+      const rpcUrl = getChainRpcUrl(savedSettings, queryDraft.chainId);
+      const publicClient = createPublicClient({
+        chain: chainConfig.viemChain,
+        transport: http(rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 })
+      });
+      const latestBlock = await publicClient.getBlockNumber();
+      const latestBlockNumber = Number(latestBlock);
+
+      setQueryDraft((currentDraft) => ({
+        ...currentDraft,
+        fromBlock: String(latestBlockNumber - 10_000),
+        toBlock: String(latestBlockNumber)
+      }));
+    } catch {
+      // silently fail — the user can still type manually
+    } finally {
+      setFetchingLatestBlock(false);
+    }
+  }, [chainConfig, queryDraft.chainId, savedSettings]);
 
   const handleLoadExample = async (): Promise<void> => {
     setQueryDraft(EXAMPLE_QUERY);
@@ -657,10 +690,28 @@ export const App = (): JSX.Element => {
                   <Input
                     inputMode="numeric"
                     onChange={(event) => {
-                      setQueryDraft((currentDraft) => ({
-                        ...currentDraft,
-                        fromBlock: event.target.value
-                      }));
+                      const newFromBlock = event.target.value;
+
+                      setQueryDraft((currentDraft) => {
+                        const fromNum = Number(newFromBlock);
+                        const toNum = Number(currentDraft.toBlock);
+                        const hasValidFrom =
+                          newFromBlock.trim() !== "" &&
+                          Number.isFinite(fromNum) &&
+                          fromNum >= 0;
+                        const shouldAutoFillTo =
+                          hasValidFrom &&
+                          (!currentDraft.toBlock.trim() ||
+                            (Number.isFinite(toNum) && toNum <= fromNum));
+
+                        return {
+                          ...currentDraft,
+                          fromBlock: newFromBlock,
+                          ...(shouldAutoFillTo
+                            ? { toBlock: String(fromNum + 10_000) }
+                            : {})
+                        };
+                      });
                     }}
                     placeholder="Start block"
                     value={queryDraft.fromBlock}
@@ -669,17 +720,36 @@ export const App = (): JSX.Element => {
 
                 <div className="space-y-2">
                   <Label>To block</Label>
-                  <Input
-                    inputMode="numeric"
-                    onChange={(event) => {
-                      setQueryDraft((currentDraft) => ({
-                        ...currentDraft,
-                        toBlock: event.target.value
-                      }));
-                    }}
-                    placeholder="End block"
-                    value={queryDraft.toBlock}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      inputMode="numeric"
+                      onChange={(event) => {
+                        setQueryDraft((currentDraft) => ({
+                          ...currentDraft,
+                          toBlock: event.target.value
+                        }));
+                      }}
+                      placeholder="End block"
+                      value={queryDraft.toBlock}
+                    />
+                    <Button
+                      className="h-10 shrink-0 whitespace-nowrap text-xs"
+                      disabled={fetchingLatestBlock || queryRuntimeState.running}
+                      intent="ghost"
+                      onClick={() => {
+                        void handleFetchRecentBlocks();
+                      }}
+                      title="Set block range to the most recent 10,000 blocks"
+                      type="button"
+                    >
+                      {fetchingLatestBlock ? (
+                        <LoaderCircle className="size-3.5 animate-spin" />
+                      ) : (
+                        <Timer className="size-3.5" />
+                      )}
+                      Recent 10K
+                    </Button>
+                  </div>
                 </div>
               </div>
 
