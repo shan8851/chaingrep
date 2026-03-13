@@ -114,6 +114,18 @@ export const ResultsTable = ({
               ) : null}
             </div>
           </div>
+        ) : queryResult.totalDecoded === 0 ? (
+          <div className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+            <div className="rounded-sm border border-chrome-500/80 bg-chrome-800/85 p-5 text-chrome-300">
+              <SearchCode className="size-8" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-chrome-50">No events found</h3>
+              <p className="max-w-lg text-sm text-chrome-200">
+                No matching events in this block range. Try a wider range or a different event filter.
+              </p>
+            </div>
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-[100px_minmax(0,200px)_minmax(0,1fr)_48px] gap-3 border-b border-chrome-500/80 bg-chrome-800 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-chrome-200">

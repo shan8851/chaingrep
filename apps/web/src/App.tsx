@@ -384,7 +384,7 @@ export const App = (): JSX.Element => {
 
       setQueryDraft((currentDraft) => ({
         ...currentDraft,
-        fromBlock: String(latestBlockNumber - 10_000),
+        fromBlock: String(latestBlockNumber - 9_999),
         toBlock: String(latestBlockNumber)
       }));
     } catch {
@@ -708,7 +708,7 @@ export const App = (): JSX.Element => {
                           ...currentDraft,
                           fromBlock: newFromBlock,
                           ...(shouldAutoFillTo
-                            ? { toBlock: String(fromNum + 10_000) }
+                            ? { toBlock: String(fromNum + 9_999) }
                             : {})
                         };
                       });
