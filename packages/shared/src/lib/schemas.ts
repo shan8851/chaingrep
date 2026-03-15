@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const modeSchema = z.enum(["sample", "direct"]);
+export const parseConfidenceSchema = z.enum(["high", "medium", "low"]);
+export const argFilterOperatorSchema = z.enum([">", "<", ">=", "<=", "==", "!="]);
 
 export const chainIdSchema = z.union([
   z.literal(1),
@@ -31,6 +33,47 @@ export const userConnectionSettingsSchema = z.object({
   rpcUrlsByChainId: z.record(z.string().regex(/^\d+$/), z.string().url()).catch({}),
   etherscanApiKey: z.string().trim().min(1).optional()
 });
+
+export const argFilterSchema = z.object({
+  argName: z.string().trim().min(1),
+  operator: argFilterOperatorSchema,
+  value: z.string().trim().min(1)
+});
+
+const autoBlockBoundarySchema = z.string().regex(/^auto:\d+(h|d)$/i);
+const numericBlockBoundarySchema = z.string().regex(/^\d+$/);
+
+export const naturalLanguageQueryParamsSchema = z.object({
+  chainId: chainIdSchema,
+  contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  eventName: z.string().trim().min(1).optional(),
+  filters: z.array(argFilterSchema).default([]),
+  fromBlock: z.union([numericBlockBoundarySchema, autoBlockBoundarySchema]),
+  toBlock: z.union([numericBlockBoundarySchema, z.literal("latest")])
+});
+
+export const naturalLanguageQueryRequestSchema = z.object({
+  chainId: chainIdSchema.optional(),
+  query: z.string().trim().min(1)
+});
+
+export const naturalLanguageQuerySuccessSchema = z.object({
+  confidence: parseConfidenceSchema,
+  contractName: z.string().trim().min(1).optional(),
+  explanation: z.string().trim().min(1),
+  params: naturalLanguageQueryParamsSchema,
+  parsed: z.literal(true)
+});
+
+export const naturalLanguageQueryFailureSchema = z.object({
+  parsed: z.literal(false),
+  reason: z.string().trim().min(1)
+});
+
+export const naturalLanguageQueryResponseSchema = z.discriminatedUnion("parsed", [
+  naturalLanguageQuerySuccessSchema,
+  naturalLanguageQueryFailureSchema
+]);
 
 export const queryProgressEventSchema = z.discriminatedUnion("type", [
   z.object({
@@ -115,9 +158,17 @@ export const abiResolutionResultSchema = z.object({
 });
 
 export type AppMode = z.infer<typeof modeSchema>;
+export type ParseConfidence = z.infer<typeof parseConfidenceSchema>;
 export type ChainId = z.infer<typeof chainIdSchema>;
 export type LogQueryInput = z.infer<typeof queryInputSchema>;
 export type UserConnectionSettings = z.infer<typeof userConnectionSettingsSchema>;
+export type ArgFilterOperator = z.infer<typeof argFilterOperatorSchema>;
+export type ArgFilter = z.infer<typeof argFilterSchema>;
+export type NaturalLanguageQueryParams = z.infer<typeof naturalLanguageQueryParamsSchema>;
+export type NaturalLanguageQueryRequest = z.infer<typeof naturalLanguageQueryRequestSchema>;
+export type NaturalLanguageQuerySuccess = z.infer<typeof naturalLanguageQuerySuccessSchema>;
+export type NaturalLanguageQueryFailure = z.infer<typeof naturalLanguageQueryFailureSchema>;
+export type NaturalLanguageQueryResponse = z.infer<typeof naturalLanguageQueryResponseSchema>;
 export type QueryProgressEvent = z.infer<typeof queryProgressEventSchema>;
 export type DecodedArgument = z.infer<typeof decodedArgumentSchema>;
 export type DecodedLog = z.infer<typeof decodedLogSchema>;

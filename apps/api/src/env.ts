@@ -4,6 +4,8 @@ import type { ChainId } from "@chaingrep/shared";
 
 const envSchema = z.object({
   CORS_ORIGIN: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().trim().min(1).optional(),
+  OPENROUTER_MODEL: z.string().trim().min(1).default("google/gemini-2.0-flash-001"),
   PORT: z.coerce.number().int().positive().default(8787),
   SAMPLE_BASE_RPC_URL: z.string().url().optional(),
   SAMPLE_ETHEREUM_RPC_URL: z.string().url().optional(),
