@@ -25,4 +25,10 @@ describe("api env helpers", () => {
 
     expect(getConfiguredSampleChainIds(apiEnv)).toEqual([1, 8453]);
   });
+
+  it("applies the default OpenRouter model", () => {
+    const apiEnv = readApiEnv({});
+
+    expect(apiEnv.OPENROUTER_MODEL).toBe("google/gemini-2.0-flash-001");
+  });
 });

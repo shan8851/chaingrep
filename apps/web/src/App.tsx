@@ -26,13 +26,22 @@ import {
 } from "@chaingrep/shared";
 
 import type {
+  ArgFilter,
   ChainId,
+  NaturalLanguageQueryResponse,
   QueryProgressEvent,
   QueryResult,
   ResolvedAbi,
   UserConnectionSettings
 } from "@chaingrep/shared";
 
+import {
+  filterDecodedLogs,
+  isAutoBlockReference,
+  parseAutoBlockReference
+} from "@chaingrep/shared";
+
+import { NaturalLanguageBar, ActiveFilters } from "./components/naturalLanguageBar";
 import { ProgressPanel } from "./components/progressPanel";
 import { ResultsTable } from "./components/resultsTable";
 import { SettingsPanel } from "./components/settingsPanel";
@@ -126,6 +135,7 @@ export const App = (): JSX.Element => {
     useState<QueryRuntimeState>(initialQueryRuntimeState);
   const { copyToClipboard, hasCopiedValue } = useCopyToClipboard();
   const [fetchingLatestBlock, setFetchingLatestBlock] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ArgFilter[]>([]);
 
   const abiResolutionMutation = useMutation({
     mutationFn: async ({
@@ -361,6 +371,83 @@ export const App = (): JSX.Element => {
       });
     }
   };
+
+  const resolveAutoBlock = useCallback(
+    async (
+      blockRef: string,
+      chainId: ChainId
+    ): Promise<string> => {
+      if (!isAutoBlockReference(blockRef)) {
+        return blockRef;
+      }
+
+      const parsed = parseAutoBlockReference(blockRef);
+
+      if (!parsed) {
+        return blockRef;
+      }
+
+      const chain = supportedChains.find((c) => c.id === chainId);
+
+      if (!chain) {
+        return blockRef;
+      }
+
+      const rpcUrl = getChainRpcUrl(savedSettings, chainId);
+      const publicClient = createPublicClient({
+        chain: chain.viemChain,
+        transport: http(rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 })
+      });
+      const latestBlock = Number(await publicClient.getBlockNumber());
+      const totalSeconds =
+        parsed.unit === "h" ? parsed.amount * 3600 : parsed.amount * 86400;
+      const blockCount = Math.floor(totalSeconds / chain.averageBlockTimeSeconds);
+
+      return String(Math.max(0, latestBlock - blockCount));
+    },
+    [savedSettings]
+  );
+
+  const handleNaturalLanguageParsed = useCallback(
+    async (result: NaturalLanguageQueryResponse & { parsed: true }) => {
+      const { params } = result;
+
+      const resolvedFrom = await resolveAutoBlock(params.fromBlock, params.chainId);
+      const resolvedTo =
+        params.toBlock === "latest"
+          ? await resolveAutoBlock("auto:1h", params.chainId).then(
+              async () => {
+                const chain = supportedChains.find((c) => c.id === params.chainId);
+
+                if (!chain) {
+                  return "";
+                }
+
+                const rpcUrl = getChainRpcUrl(savedSettings, params.chainId);
+                const publicClient = createPublicClient({
+                  chain: chain.viemChain,
+                  transport: http(rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 })
+                });
+
+                return String(Number(await publicClient.getBlockNumber()));
+              }
+            )
+          : params.toBlock;
+
+      setQueryDraft({
+        chainId: params.chainId,
+        contractAddress: params.contractAddress,
+        eventName: params.eventName ?? "",
+        fromBlock: resolvedFrom,
+        mode: getChainRpcUrl(savedSettings, params.chainId) ? "direct" : "sample",
+        toBlock: resolvedTo
+      });
+
+      setActiveFilters(params.filters);
+      setManualAbiText("");
+    },
+    [resolveAutoBlock, savedSettings]
+  );
 
   const chainConfig = supportedChains.find(
     (supportedChain) => supportedChain.id === queryDraft.chainId
@@ -626,6 +713,14 @@ export const App = (): JSX.Element => {
               </Button>
             </div>
           </header>
+
+          <NaturalLanguageBar
+            currentChainId={queryDraft.chainId}
+            disabled={queryRuntimeState.running}
+            onParsed={(result) => {
+              void handleNaturalLanguageParsed(result);
+            }}
+          />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
             <Panel className="p-6 sm:p-8">
@@ -940,6 +1035,18 @@ export const App = (): JSX.Element => {
             />
           </div>
 
+          <ActiveFilters
+            filters={activeFilters}
+            onClear={() => {
+              setActiveFilters([]);
+            }}
+            onRemoveFilter={(index) => {
+              setActiveFilters((current) =>
+                current.filter((_, i) => i !== index)
+              );
+            }}
+          />
+
           <ResultsTable
             onExportCsv={() => {
               if (!queryRuntimeState.queryResult) {
@@ -970,7 +1077,21 @@ export const App = (): JSX.Element => {
             onLoadExample={() => {
               void handleLoadExample();
             }}
-            queryResult={queryRuntimeState.queryResult}
+            queryResult={
+              queryRuntimeState.queryResult && activeFilters.length > 0
+                ? {
+                    ...queryRuntimeState.queryResult,
+                    logs: filterDecodedLogs(
+                      queryRuntimeState.queryResult.logs,
+                      activeFilters
+                    ),
+                    totalDecoded: filterDecodedLogs(
+                      queryRuntimeState.queryResult.logs,
+                      activeFilters
+                    ).length
+                  }
+                : queryRuntimeState.queryResult
+            }
           />
 
           <footer className="mt-8 border-t border-chrome-500/80 py-6 text-center">

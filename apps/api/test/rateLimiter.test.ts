@@ -5,7 +5,9 @@ import { createRateLimiter } from "../src/rateLimiter";
 describe("createRateLimiter", () => {
   it("blocks concurrent queries from the same client", () => {
     const rateLimiter = createRateLimiter({
-      maxQueriesPerWindow: 2,
+      activeRequestMessage: "already running",
+      maxActiveRequests: 1,
+      maxRequestsPerWindow: 2,
       windowMs: 1_000
     });
 
@@ -16,7 +18,8 @@ describe("createRateLimiter", () => {
 
   it("enforces the window query limit", () => {
     const rateLimiter = createRateLimiter({
-      maxQueriesPerWindow: 1,
+      maxRequestsPerWindow: 1,
+      maxWindowRequestMessage: "Rate limit hit",
       windowMs: 100_000
     });
 

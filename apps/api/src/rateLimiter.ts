@@ -1,6 +1,6 @@
 type RateLimitEntry = {
-  activeQueries: number;
-  queryCount: number;
+  activeRequests: number;
+  requestCount: number;
   windowStartedAt: number;
 };
 
@@ -10,18 +10,24 @@ export type RateLimiter = {
 };
 
 export type RateLimiterOptions = {
-  maxQueriesPerWindow: number;
+  activeRequestMessage?: string;
+  maxActiveRequests?: number;
+  maxRequestsPerWindow: number;
+  maxWindowRequestMessage?: string;
   windowMs: number;
 };
 
 const getFreshEntry = (startedAt: number): RateLimitEntry => ({
-  activeQueries: 0,
-  queryCount: 0,
+  activeRequests: 0,
+  requestCount: 0,
   windowStartedAt: startedAt
 });
 
 export const createRateLimiter = ({
-  maxQueriesPerWindow,
+  activeRequestMessage = "A request is already running. Wait for it to finish or cancel it.",
+  maxActiveRequests,
+  maxRequestsPerWindow,
+  maxWindowRequestMessage = "Rate limit hit. Try again later.",
   windowMs
 }: RateLimiterOptions): RateLimiter => {
   const entries = new Map<string, RateLimitEntry>();
@@ -53,21 +59,24 @@ export const createRateLimiter = ({
     begin: (identifier) => {
       const entry = getEntry(identifier);
 
-      if (entry.activeQueries > 0) {
-        throw new Error("A query is already running. Wait for it to finish or cancel it.");
+      if (
+        maxActiveRequests !== undefined &&
+        entry.activeRequests >= maxActiveRequests
+      ) {
+        throw new Error(activeRequestMessage);
       }
 
-      if (entry.queryCount >= maxQueriesPerWindow) {
-        throw new Error("Rate limit hit. Add your own RPC for unlimited queries.");
+      if (entry.requestCount >= maxRequestsPerWindow) {
+        throw new Error(maxWindowRequestMessage);
       }
 
-      entry.queryCount += 1;
-      entry.activeQueries += 1;
+      entry.requestCount += 1;
+      entry.activeRequests += 1;
     },
     finish: (identifier) => {
       const entry = getEntry(identifier);
 
-      entry.activeQueries = Math.max(entry.activeQueries - 1, 0);
+      entry.activeRequests = Math.max(entry.activeRequests - 1, 0);
     }
   };
 };

@@ -4,7 +4,15 @@ import type { Chain } from "viem";
 
 import type { ChainId } from "./schemas";
 
+export const averageBlockTimeSecondsByChainId: Record<ChainId, number> = {
+  1: 12,
+  8453: 2,
+  11155111: 12,
+  137: 2
+};
+
 export type SupportedChainConfig = {
+  averageBlockTimeSeconds: number;
   id: ChainId;
   name: string;
   shortName: string;
@@ -15,6 +23,7 @@ export type SupportedChainConfig = {
 
 export const supportedChains = [
   {
+    averageBlockTimeSeconds: 12,
     id: 1,
     name: "Ethereum",
     shortName: "eth",
@@ -23,6 +32,7 @@ export const supportedChains = [
     etherscanChainId: "1"
   },
   {
+    averageBlockTimeSeconds: 12,
     id: 11155111,
     name: "Sepolia",
     shortName: "sep",
@@ -31,6 +41,7 @@ export const supportedChains = [
     etherscanChainId: "11155111"
   },
   {
+    averageBlockTimeSeconds: 2,
     id: 137,
     name: "Polygon",
     shortName: "matic",
@@ -39,6 +50,7 @@ export const supportedChains = [
     etherscanChainId: "137"
   },
   {
+    averageBlockTimeSeconds: 2,
     id: 8453,
     name: "Base",
     shortName: "base",

@@ -1,10 +1,16 @@
-import { getChainConfig, queryInputSchema, runLogQuery } from "@chaingrep/shared";
+import {
+  getChainConfig,
+  naturalLanguageQueryRequestSchema,
+  queryInputSchema,
+  runLogQuery
+} from "@chaingrep/shared";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { z } from "zod";
 
 import type { Abi } from "viem";
 import { getConfiguredSampleChainIds, getSampleRpcUrlForChain } from "./env";
+import { parseNaturalLanguageQuery } from "./queryParser";
 import type { QueryStreamMessage } from "@chaingrep/shared";
 import type { ApiEnv } from "./env";
 import type { RateLimiter } from "./rateLimiter";
@@ -17,8 +23,14 @@ const sampleQueryRequestSchema = z.object({
 type AppBindings = {
   Variables: {
     env: ApiEnv;
-    rateLimiter: RateLimiter;
+    parseQueryLimiter: RateLimiter;
+    sampleQueryLimiter: RateLimiter;
   };
+};
+
+export type AppRateLimiters = {
+  parseQueryLimiter: RateLimiter;
+  sampleQueryLimiter: RateLimiter;
 };
 
 const getClientIdentifier = (requestHeaders: Headers): string =>
@@ -32,7 +44,10 @@ const encodeStreamMessage = (message: QueryStreamMessage): Uint8Array =>
 const toMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Unknown server error";
 
-export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<AppBindings> => {
+export const createApp = (
+  environment: ApiEnv,
+  rateLimiters: AppRateLimiters
+): Hono<AppBindings> => {
   const app = new Hono<AppBindings>();
 
   app.use(
@@ -46,7 +61,8 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
 
   app.use("*", async (context, next) => {
     context.set("env", environment);
-    context.set("rateLimiter", rateLimiter);
+    context.set("parseQueryLimiter", rateLimiters.parseQueryLimiter);
+    context.set("sampleQueryLimiter", rateLimiters.sampleQueryLimiter);
     await next();
   });
 
@@ -80,7 +96,7 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
     const clientIdentifier = getClientIdentifier(context.req.raw.headers);
 
     try {
-      context.var.rateLimiter.begin(clientIdentifier);
+      context.var.sampleQueryLimiter.begin(clientIdentifier);
     } catch (error) {
       return context.json(
         {
@@ -99,7 +115,7 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
       start: (controller) => {
         const closeStream = (): void => {
           controller.close();
-          context.var.rateLimiter.finish(clientIdentifier);
+          context.var.sampleQueryLimiter.finish(clientIdentifier);
         };
         const safeWrite = (message: QueryStreamMessage): void => {
           controller.enqueue(encodeStreamMessage(message));
@@ -138,7 +154,7 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
           });
       },
       cancel: () => {
-        context.var.rateLimiter.finish(clientIdentifier);
+        context.var.sampleQueryLimiter.finish(clientIdentifier);
       }
     });
 
@@ -149,6 +165,48 @@ export const createApp = (environment: ApiEnv, rateLimiter: RateLimiter): Hono<A
         "x-content-type-options": "nosniff"
       }
     });
+  });
+
+  app.post("/api/parse-query", async (context) => {
+    const parsedRequestBody = naturalLanguageQueryRequestSchema.safeParse(
+      await context.req.json().catch(() => null)
+    );
+
+    if (!parsedRequestBody.success) {
+      return context.json(
+        {
+          error: "Invalid parse request."
+        },
+        400
+      );
+    }
+
+    const clientIdentifier = getClientIdentifier(context.req.raw.headers);
+
+    try {
+      context.var.parseQueryLimiter.begin(clientIdentifier);
+    } catch (error) {
+      return context.json(
+        {
+          error: toMessage(error)
+        },
+        429
+      );
+    }
+
+    try {
+      const parsedQuery = await parseNaturalLanguageQuery({
+        apiEnv: context.var.env,
+        ...(parsedRequestBody.data.chainId
+          ? { chainIdHint: parsedRequestBody.data.chainId }
+          : {}),
+        query: parsedRequestBody.data.query
+      });
+
+      return context.json(parsedQuery);
+    } finally {
+      context.var.parseQueryLimiter.finish(clientIdentifier);
+    }
   });
 
   return app;
